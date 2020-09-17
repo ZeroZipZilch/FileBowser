@@ -4,8 +4,6 @@ import ReactDom from 'react-dom';
 import FileView from './components/FileView'
 import FileTree from './components/FileTree';
 import ContextMenu from './components/ContextMenu'
-import { Cookies } from 'electron/main';
-import { SSL_OP_NETSCAPE_DEMO_CIPHER_CHANGE_BUG } from 'constants';
 
 const _cloneDeep = require('lodash/cloneDeep')
 
@@ -135,8 +133,10 @@ class App extends Component<Props, State> {
     }
   }
 
-  // Method to recursively traverse the structure object and modify it on a certain level
-  // based on a path
+  /**
+   * Method to recursively traverse the structure object and modify it on a certain level
+   * based on a path
+   */
   traverseDirectoryModify(structure:any, pathArray: string[], i: number, end: number, callback: (structure: any) => any) {
     // If we've reached the end
     if (i >= end) {
@@ -150,8 +150,10 @@ class App extends Component<Props, State> {
     return structure
   }
   
-  // Method to recursively traverse the structure object and check a value on a certain level
-  // based on a path
+  /**
+   * Method to recursively traverse the structure object and check a value on a certain level
+   * based on a path.
+   */
   traverseDirectoryCheck(structure:any, pathArray: string[], i: number, end: number, callback: (structure: any) => any): any {
     // If we've reached the end
     if (i >= end) {
@@ -163,46 +165,42 @@ class App extends Component<Props, State> {
     return this.traverseDirectoryCheck(structure[pathArray[i]], pathArray, i + 1, pathArray.length, callback)
   }
 
+  /**
+   * Check if current path leads to a directory
+   */
   isDirectory(pathArray: string[]): boolean {
     let structure = _cloneDeep(this.state.fileTree)
 
     const hasOpen = (structure: any): boolean => {
+      // If open exists, it's a directory. Otherwise it's a file
       return structure?.open !== undefined
     }
 
     return this.traverseDirectoryCheck(structure, pathArray, 1, pathArray.length, hasOpen)
   }
 
+  /**
+   * Add a file to path
+   * @param path path to where to add the file
+   */
   addFile(path: string): void {
-    // Split the path into an array
-    const pathArray = path.split('/')
-
-    // If the selected item is not a directory, remove one item from the pathArray
-    if (!this.isDirectory(pathArray)) {
-      pathArray.pop();
-    }
-    
-    // Deep clone the structure so we're not working on the state file tree
-    let structure = _cloneDeep(this.state.fileTree)
-
-    // By using a function like this we can re-use the traverseDirectoryModify method for other purposes
-    const add = function(structure: any) {
-      if (structure.open !== undefined) {
-        structure.open = true
-      }
-
-      structure['files'].push({label: "New File", input: true, creating: true})
-      return structure
-    }
-    
-    // Recursively iterate through the structure object and set the structure to its return value
-    structure = this.traverseDirectoryModify(structure, pathArray, 1, pathArray.length, add)
-    
-    // Update state
-    this.setState({...this.state, fileTree: structure})
+    this.addItem(path, 'file')
   }
 
+  /**
+   * Add a directory to path
+   * @param path path to where to add the directory
+   */
   addDirectory(path: string) {
+    this.addItem(path, 'dir')
+  }
+
+  /**
+   * Add an item to the structure based on path
+   * @param path path to where to add the item
+   * @param type type of item (dir | file)
+   */
+  addItem(path: string, type: string) {
     // Split the path into an array
     const pathArray = path.split('/')
 
@@ -214,13 +212,18 @@ class App extends Component<Props, State> {
     // Deep clone the structure so we're not working on the state file tree
     let structure = _cloneDeep(this.state.fileTree)
 
-    // By using a function like this we can re-use the traverseDirectoryModify method for other purposes
+    // callback function for traverseDirectoryModify()
     const add = function(structure: any) {
       if (structure.open !== undefined) {
         structure.open = true
       }
 
-      structure['New Directory'] = { open: false, input: true, creating: true, files: [] }
+      if (type === 'dir') {
+        structure['New Directory'] = { open: false, input: true, creating: true, files: [] }
+      } else {
+        structure['files'].push({label: "New File", input: true, creating: true})
+      }
+
       return structure
     }
 
@@ -242,59 +245,67 @@ class App extends Component<Props, State> {
     }
 
     let structure = _cloneDeep(this.state.fileTree)
+
+    // Because we are doing a traversal inside of a traversal, we're going to need
+    // a second file tree object that we can use, that's unaffected by the first
+    // traversal
     let unsulliedStructure = _cloneDeep(this.state.fileTree)
 
-    structure = this.traverseDirectoryModify(
-      structure,
-      pathArray,
-      1,
-      pathArray.length,
-      (structure) => {
-        if (filename) {
-          structure.files = structure.files.reduce((acc: any[], cur: any) => {
-            if (cur.label !== filename) {
-              acc.push(cur)
-            }
+    // Recursively iterate through the structure object and set the structure to its return value
+    structure = this.traverseDirectoryModify(structure, pathArray, 1, pathArray.length, (structure) => {
+      // If filename has a value it means we are dealing with a file
+      if (filename) {
+        // Create a new files array with all files except the file we want to delete
+        // and assign it to the structure files[]
+        structure.files = structure.files.reduce((acc: any[], cur: any) => {
+          if (cur.label !== filename) {
+            acc.push(cur)
+          }
 
-            return acc
-          }, [])
+          return acc
+        }, [])
 
-          console.log(structure)
+        return structure
+      } else {
+        // If we get here we are dealing with a directory
+
+        // We want to access the parent directory (and we want to save the dir name of the dir
+        // we chose to delete)
+        const oldDirName:string = pathArray.pop()!
+
+        // We are going to traverse the file tree again, this time to the parent directory
+        // When there, we delete the directory that we have selected.
+        // We start with a full file tree and go down the path. Then we return that structure
+        structure = this.traverseDirectoryModify(unsulliedStructure, pathArray, 1, pathArray.length, (structure) => {
+          delete structure[oldDirName]
+
           return structure
-        } else {
-          const oldDirName:string = pathArray.pop()!
-          const newStructure = _cloneDeep(structure)
+        })
 
-          structure = this.traverseDirectoryModify(
-            unsulliedStructure,
-            pathArray,
-            1,
-            pathArray.length,
-            (structure) => {
-              console.log(structure)
-              delete structure[oldDirName]
-
-              return structure
-            }
-          )
-
-          this.setState({...this.state, fileTree: structure})
-        }
+        // we update the state here, because we want the structure of this iteration to be
+        // the file tree
+        this.setState({...this.state, fileTree: structure})
       }
-    )
+    })
 
+    // Otherwise, if we get here, we update the state assuming that we were dealing with a file
+    // This is because for a file, we want the first level of recursion to be the "head" of the
+    // file tree
     if (filename !== "") {
       this.setState({...this.state, fileTree: structure})
     }
   }
 
-  // This handles the context menu click for Rename, toggling the input in the file tree
+  /**
+   * This handles the context menu click for Rename, toggling the input in the file tree
+   */
   toggleItemInput(path: string) {
     // Split the path into an array
     const pathArray = path.split('/')
     let filename: string = ""
 
-    // If the selected item is not a directory, remove one item from the pathArray
+    // If the selected item is not a directory, remove last item from the pathArray
+    // and assign its value to a variable
     if (!this.isDirectory(pathArray)) {
       filename = pathArray.pop() !
     }
@@ -302,18 +313,20 @@ class App extends Component<Props, State> {
     // Deep clone the structure so we're not working on the state file tree
     let structure = _cloneDeep(this.state.fileTree)
 
-    // By using a function like this we can re-use the traverseDirectoryModify method for other purposes
+    // callback function for traverseDirectoryModify()
     const toggle = function(structure: any) {
       if (filename) {
-        console.log(filename, structure)
+        // If we are dealing with a file, iterate over the files array
+        // and when file.label == filename, toggle the input for it
         structure.files = structure.files.map((file: any) => {
           if (file.label === filename) {
             file.input = !file.input
           }
-          
+
           return file
         })
       } else {
+        // Otherwise it's a directory. Simply toggle the input
         structure.input = !structure.input
       }
 
@@ -327,38 +340,44 @@ class App extends Component<Props, State> {
     this.setState({...this.state, fileTree: structure})
   }
 
-  // This handles the actual renaming
+  /**
+   * This handles the actual renaming
+   */
   renameItem(e: any, path: string, value: string) {
     // Split the path into an array
     const pathArray: string[] = path.split('/')
     let filename: string = ""
 
     // If the selected item is not a directory, remove one item from the pathArray
+    // and assign it to a variable
     if (!this.isDirectory(pathArray)) {
       filename = pathArray.pop() !
     }
 
     // Deep clone the structure so we're not working on the state file tree
     let structure = _cloneDeep(this.state.fileTree)
+
+    // Because we are doing a traversal inside of a traversal, we're going to need
+    // a second file tree object that we can use, that's unaffected by the first
+    // traversal
     let unsulliedStructure = _cloneDeep(this.state.fileTree)
     
-    const isCreating = this.traverseDirectoryCheck(
-      structure, 
-      pathArray, 
-      1,
-      pathArray.length,
-      (structure) => {
-        if (filename) {
-          return structure.files.map((file: any) => {
-            if (file.label === filename) {
-              return file.creating
-            }
-          }).pop()
-        } else {
-          return structure.creating
-        }
+    // Check to see if we are currently creating the file or directory being renamed
+    // We check this because when an item is created, it's given this key.
+    const isCreating = this.traverseDirectoryCheck(structure, pathArray, 1, pathArray.length, (structure) => {
+      // If filename exists, we are dealing with a file
+      if (filename) {
+        // Return file.creating for the last file in the files array.
+        // file.creating will either not exist or be true. Since it's an array,
+        // it will always be the last item in the files array if it exists
+        return structure.files[structure.files.length - 1].creating
+      } else {
+        // If we get here we're in a directory
+        // Return structure.creating for that directory.
+        // It will either not exist or be true
+        return structure.creating
       }
-    )
+    })
 
     /**
      * If pressing ESC and key creating DOES exist: call deleteItem ()
@@ -366,19 +385,11 @@ class App extends Component<Props, State> {
      * If BLUR and key creating DOES exist and input is EMPTY: call deleteItem()
      */
     if (
-      (
-        value === "" &&
-        (
-          e.key === 'Enter' ||
-          e.type === 'blur'
-        ) && isCreating
-      ) || (
-        e.key === 'Escape' && isCreating
-      )
-
+      (value === "" && (e.key === 'Enter' || e.type === 'blur') && isCreating) ||
+      (e.key === 'Escape' && isCreating)
     ) {
       this.deleteItem(path)
-      return
+      return // Return because we don't want to go past this point. Just a precaution.
     }
 
     /**
@@ -404,69 +415,86 @@ class App extends Component<Props, State> {
      */
 
     else if (e.key === 'Enter' || e.key === 'Escape' || e.type === 'blur') {
-      structure = this.traverseDirectoryModify(
-        structure,
-        pathArray,
-        1,
-        pathArray.length,
-        (structure) => {
-          if (filename) {
-            structure.files = structure.files.map((file: any) => {
-              console.log(file)
-              if (file.label === filename) {
-                file.input = false
+      structure = this.traverseDirectoryModify(structure, pathArray, 1, pathArray.length, (structure) => {
+        // If filename exists we are dealing with a file
+        if (filename) {
+          // Create a new files array by iterating over the existing one,
+          // and assign it to the existing one
+          structure.files = structure.files.map((file: any) => {
+            // if the current file label equals the filename we have selected,
+            // make changes
+            if (file.label === filename) {
+              file.input = false
 
-                if (isCreating) {
-                  delete file.creating
-                }
-
-                if (value !== "" && e.key !== 'Escape') {
-                  file.label = value
-                }
+              // If the file is being created, we want to delete this key when the filename
+              // has been changed, because it's no longer a new file
+              if (isCreating) {
+                delete file.creating
               }
 
-              return file
+              // If the value is empty or the user presses Escape, we don't change
+              // the filename, AKA we skip this section
+              if (value !== "" && e.key !== 'Escape') {
+                file.label = value
+              }
+            }
+
+            return file
+          })
+
+          return structure
+        } else {
+          // If we get here, we are dealing with a directory
+
+          // We want to access the parent directory, so we assign the directory name to a
+          // variable and pop it from the pathArray
+          const oldDirName:string = pathArray.pop()!
+
+          structure.input = false
+
+          // If the new directory name is empty, or if the user presses Escape on the keyboard,
+          // there's nothing more to it. We can return here.
+          if (value === "" && e.key === 'Escape') {
+            return structure
+          }
+          
+          // If the directory is being created, we want to delete this key when the directory name
+          // has been changed, because it's no longer a new directory
+          if (isCreating) {
+            delete structure.creating
+          }
+
+          // If this returns false it means Escape was pressed, but the value was not Empty.
+          if (e.key !== 'Escape') {
+            // Let's clone the structure again. This time we want to clone the structure
+            // of our current level of recursion. This is probably overkill and could be
+            // circumvented
+            const newStructure = _cloneDeep(structure)
+            
+            // Then we traverse down the file tree, again. This time to the parent directory
+            // (remember we popped the pathArray earlier?)
+            structure = this.traverseDirectoryModify(unsulliedStructure, pathArray, 1, pathArray.length, (structure) => {
+              // Here we delete the key with the old directory name, and we assign
+              // its values to a key with the new directory name.
+              delete structure[oldDirName]
+              structure[value] = newStructure
+
+              return structure
             })
 
-            return structure
+            // Then we assign this new structure to the fileTree in state. We do this here,
+            // because we want this second level of recursion to be the "head" of the file tree
+            this.setState({...this.state, fileTree: structure})
           } else {
-            const oldDirName:string = pathArray.pop()!
-
-            structure.input = false
-
-            if (value === "" && e.key === 'Escape') {
-              return structure
-            }
-            
-            if (isCreating) {
-              delete structure.creating
-            }
-
-            if (e.key !== 'Escape') {
-              const newStructure = _cloneDeep(structure)
-              
-              structure = this.traverseDirectoryModify(
-                unsulliedStructure,
-                pathArray,
-                1,
-                pathArray.length,
-                (structure) => {
-                  console.log(structure)
-                  delete structure[oldDirName]
-                  structure[value] = newStructure
-
-                  return structure
-                }
-              )
-
-              this.setState({...this.state, fileTree: structure})
-            } else {
-              return structure
-            }
+            // And if Escape was pressed, we simply return the structure without further
+            // modifications. That'd mean we return it with a structure.input = false and
+            // nothign else
+            return structure
           }
         }
-      )
+      })
 
+      // And here... If the state hasn't already been set above, we set it here
       if (filename !== "" || value === "" || e.key === 'Escape') {
         this.setState({...this.state, fileTree: structure})
       }
