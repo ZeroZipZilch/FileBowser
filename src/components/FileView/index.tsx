@@ -1,19 +1,27 @@
 import React, { Component } from 'react'
 
-import FileTree from '../FileTree'
+import Directory from '../Directory'
+import File from '../File'
 
 const _isEqual = require('lodash/isEqual')
 
 interface FileViewState {
   directories: string[],
-  files: string[]
+  files: string[],
+  parentPath: string,
 }
 
 interface FileViewProps {
-  viewType: string,
   currentPath: string,
   fileTree: any,
-  changePath: (to: string) => void
+  changePath: (to: string) => void,
+  renameItem: (e: any, itemPath: string, value: string) => void,
+  setDraggingPath: (path: string) => void,
+  draggingPath: string,
+  setHoveringPath: (path: string) => void,
+  hoveringPath: string,
+  resetDragPaths: () => void,
+  moveItem: () => void,
 }
 
 export default class FileView extends Component<FileViewProps, FileViewState> {
@@ -22,8 +30,13 @@ export default class FileView extends Component<FileViewProps, FileViewState> {
 
     this.state = {
       directories: [],
-      files: []
+      files: [],
+      parentPath: "",
     }
+  }
+
+  componentDidMount() {
+    this.getItems(this.props)
   }
 
   shouldComponentUpdate(nextProps: any, nextState: any): boolean {
@@ -41,15 +54,15 @@ export default class FileView extends Component<FileViewProps, FileViewState> {
    * Get directories in current path
    */
   getItems(props: any) {
-    let path: string[] = props.currentPath.split('/')
+    let pathArray: string[] = props.currentPath.split('/')
     let currentPath: any
-    let files: string[] = []
-    const directories: string[] = []
+    let files: any[] = []
+    const directories: any[] = []
 
     // While path is not root
-    while (path.length > 0) {
+    while (pathArray.length > 0) {
       //Navigate through the path-array by setting pathItem to the first item in the array
-      let pathItem: string = path.shift() !
+      let pathItem: string = pathArray.shift() !
 
       // First iteration, set currentPath to first item. For example:
       // Path is marvel/black_widow
@@ -78,35 +91,105 @@ export default class FileView extends Component<FileViewProps, FileViewState> {
       // Iterate over all keys in currentPath
       Object.keys(currentPath).map((item: string) => {
         if (item === 'files') {
-          // If the current object key is `files`, simply put them all in a files variable
-          files = currentPath['files']
+          // If the current object key is `files`, simply put the files array in a files variable
+          let filePath = props.currentPath === '/' ? '' : props.currentPath
+          files = currentPath['files'].map((file: any) => {
+            return {label: file.label, path: `${filePath}/${file.label}`, input: file.input}
+          })
+
+          return
+        } else if (item !== 'open' && item !== 'creating' && item !== 'input') {
+
+          // If the above didn't return, it means we are dealing with a directory
+          // Push it to the directories array
+          let dirPath = props.currentPath === '/' ? '' : props.currentPath
+          directories.push({ label: item, path: `${dirPath}/${item}`, input: currentPath[item]['input']})
           return
         }
-
-        // If the above didn't return, it means we are dealing with a directory
-        // Push it to the directories array
-        directories.push(item)
-        return
       })
+
+      let parentPath = props.currentPath.split('/').reduce((acc:string[], cur: string) => {
+        if (cur !== "") {
+          acc.push(cur)
+        }
+
+        return acc
+      }, [])
+
+      if (parentPath.length > 0) {
+        parentPath.pop()
+      }
+
+      parentPath = parentPath.join('/')
+
+      if (parentPath == '') {
+        parentPath = '/'
+      } else {
+        parentPath = '/' + parentPath
+      }
 
       // And then we refresh the state with all directories and files in the current path
       // to re-render
-      this.setState({...this.state, directories, files})
-    }
-  }
-
-  getView() {
-    switch (this.props.viewType) {
-      case 'tree':
-        return <FileTree
-                directories={this.state.directories}
-                files={this.state.files}
-                changePath={this.props.changePath}
-              />
+      this.setState({...this.state, directories, files, parentPath})
     }
   }
 
   render() {
-    return <div>{this.getView()}</div>
+    console.log(this.state)
+    return (
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap'
+        }}
+      >
+      {this.props.currentPath !== '/' ? <Directory
+          directoryName=".."
+          directoryPath={this.state.parentPath}
+          input={false}
+          changePath={this.props.changePath}
+          renameItem={this.props.renameItem}
+          moveItem={this.props.moveItem}
+          setDraggingPath={this.props.setDraggingPath}
+          setHoveringPath={this.props.setHoveringPath}
+          resetDragPaths={this.props.resetDragPaths}
+          draggingPath={this.props.draggingPath}
+          hoveringPath={this.props.hoveringPath}
+        /> : null}
+
+      {this.state.directories.map((directory: any, i: number) => {
+        return <Directory
+          key={`fileviewdirectory-${i}-${directory.label}`}
+          directoryName={directory.label}
+          directoryPath={directory.path}
+          input={directory.input}
+          changePath={this.props.changePath}
+          renameItem={this.props.renameItem}
+          moveItem={this.props.moveItem}
+          setDraggingPath={this.props.setDraggingPath}
+          setHoveringPath={this.props.setHoveringPath}
+          resetDragPaths={this.props.resetDragPaths}
+          draggingPath={this.props.draggingPath}
+          hoveringPath={this.props.hoveringPath}
+        />
+      })}
+
+      {this.state.files.map((file: any, i: number) => {
+        return <File
+          key={`fileviewfile-${i}-${file.label}`}
+          fileName={file.label}
+          filePath={file.path}
+          input={file.input}
+          renameItem={this.props.renameItem}
+          moveItem={this.props.moveItem}
+          setDraggingPath={this.props.setDraggingPath}
+          setHoveringPath={this.props.setHoveringPath}
+          resetDragPaths={this.props.resetDragPaths}
+          draggingPath={this.props.draggingPath}
+          hoveringPath={this.props.hoveringPath}
+        />
+      })}
+      </div>
+    )
   }
 }
