@@ -1,14 +1,17 @@
 import React, { Component } from 'react'
 
 interface ContextMenuProps {
-  handleContextMenu: (option: string, path: string) => void
+  viewType: string,
+  currentPath: string,
+  handleContextMenu: (option: string, path: string) => void,
 }
 
 interface ContextMenuState {
   contextPath: string,
   xPos: string,
   yPos: string,
-  showMenu: boolean
+  showMenu: boolean,
+  onlyAdd: boolean,
 }
 
 export default class ContextMenu extends Component<ContextMenuProps, ContextMenuState> {
@@ -16,7 +19,8 @@ export default class ContextMenu extends Component<ContextMenuProps, ContextMenu
     contextPath: '',
     xPos: "0px",
     yPos: "0px:",
-    showMenu: false
+    showMenu: false,
+    onlyAdd: false,
   }
 
   componentDidMount() {
@@ -46,7 +50,26 @@ export default class ContextMenu extends Component<ContextMenuProps, ContextMenu
         xPos: `${e.pageX}px`,
         yPos: `${e.pageY}px`,
         showMenu: true,
+        onlyAdd: false,
       })
+    } else {
+      if (this.props.viewType === 'tree') {
+        this.setState({
+          contextPath: '/',
+          xPos: `${e.pageX}px`,
+          yPos: `${e.pageY}px`,
+          showMenu: true,
+          onlyAdd: true,
+        })
+      } else {
+        this.setState({
+          contextPath: this.props.currentPath,
+          xPos: `${e.pageX}px`,
+          yPos: `${e.pageY}px`,
+          showMenu: true,
+          onlyAdd: true,
+        })
+      }
     }
   }
 
@@ -70,8 +93,8 @@ export default class ContextMenu extends Component<ContextMenuProps, ContextMenu
         >
           <li className="context-menu-item" id="contextAddFile">Add File</li>
           <li className="context-menu-item" id="contextAddDir">Add Directory</li>
-          <li className="context-menu-item" id="contextDelete">Delete</li>
-          <li className="context-menu-item" id="contextRename">Rename</li>
+          {this.state.onlyAdd ? null : <li className="context-menu-item" id="contextDelete">Delete</li>}
+          {this.state.onlyAdd ? null : <li className="context-menu-item" id="contextRename">Rename</li>}
         </ul>
       )
     }
