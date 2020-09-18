@@ -5,7 +5,7 @@ const _isEqual = require('lodash/isEqual')
 interface FileTreeInputProps {
   itemName: string,
   itemPath: string,
-  indent: number,
+  indent?: number,
   renameItem: (e: any, itemPath: string, value: string) => void
 }
 
