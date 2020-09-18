@@ -1,5 +1,8 @@
 import React, { Component } from 'react'
 
+import { DndProvider } from 'react-dnd'
+import { HTML5Backend } from 'react-dnd-html5-backend'
+
 const _isEqual = require('lodash/isEqual')
 
 import FileTreeDirectory from '../FileTreeDirectory'
@@ -8,7 +11,13 @@ import FileTreeFile from '../FileTreeFile'
 interface FileTreeProps {
   fileTree: any,
   toggleDirectory: (directoryPath: string) => void,
-  renameItem: (e: any, itemPath: string, value: string) => void
+  renameItem: (e: any, itemPath: string, value: string) => void,
+  moveItem: () => void,
+  setDraggingPath: (path: string) => void,
+  draggingPath: string,
+  setHoveringPath: (path: string) => void,
+  hoveringPath: string,
+  resetDragPaths: () => void,
 }
 
 export default class FileTree extends Component<FileTreeProps> {
@@ -40,6 +49,12 @@ export default class FileTree extends Component<FileTreeProps> {
             directoryPath={`${path}/${item}`}
             toggleDirectory={this.props.toggleDirectory}
             renameItem={this.props.renameItem}
+            moveItem={this.props.moveItem}
+            setDraggingPath={this.props.setDraggingPath}
+            setHoveringPath={this.props.setHoveringPath}
+            resetDragPaths={this.props.resetDragPaths}
+            draggingPath={this.props.draggingPath}
+            hoveringPath={this.props.hoveringPath}
             indent={i}
             open={fileTree[item]['open']}
             input={fileTree[item]['input']}
@@ -69,6 +84,12 @@ export default class FileTree extends Component<FileTreeProps> {
             indent={i}
             input={file['input']}
             renameItem={this.props.renameItem}
+            moveItem={this.props.moveItem}
+            setDraggingPath={this.props.setDraggingPath}
+            setHoveringPath={this.props.setHoveringPath}
+            resetDragPaths={this.props.resetDragPaths}
+            draggingPath={this.props.draggingPath}
+            hoveringPath={this.props.hoveringPath}
           />
 
           // Push the file to the items array
@@ -85,7 +106,7 @@ export default class FileTree extends Component<FileTreeProps> {
 
   render() {
     return (
-      <div>
+      <div onDragLeave={(e) => { if (this.props.hoveringPath === "") this.props.setHoveringPath("/") }}>
         {this.traverseFileTree(this.props.fileTree, 0, '')}
       </div>
     )
