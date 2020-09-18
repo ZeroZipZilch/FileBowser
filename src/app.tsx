@@ -5,20 +5,22 @@ import FileView from './components/FileView'
 import FileTree from './components/FileTree';
 import ContextMenu from './components/ContextMenu'
 
+import { traverseDirectoryCheck, traverseDirectoryModify } from './utils/recursiveFunctions'
+
 const _cloneDeep = require('lodash/cloneDeep')
 
 const mainElement = document.createElement('div');
 document.body.appendChild(mainElement);
 
-interface Props {
-
-}
+interface Props {}
 
 interface State {
   fileTree: {},
   currentPath: string,
   contextPath: string,
-  viewType: string // tree, windows explorer
+  draggingPath: string, // Dragging path
+  hoveringPath: string // Hovering path
+  viewType: string, // tree, windows explorer
 }
 
 class App extends Component<Props, State> {
@@ -29,13 +31,20 @@ class App extends Component<Props, State> {
       fileTree: {},
       currentPath: '/', // For the FileView layout
       contextPath: '',
-      viewType: 'tree'
+      viewType: 'explorer',
+      draggingPath: "",
+      hoveringPath: "",
     }
 
     this.changePath = this.changePath.bind(this)
     this.toggleDirectory = this.toggleDirectory.bind(this)
     this.handleContextMenu = this.handleContextMenu.bind(this)
     this.renameItem = this.renameItem.bind(this)
+    this.moveItem = this.moveItem.bind(this)
+    this.setDraggingPath = this.setDraggingPath.bind(this)
+    this.setHoveringPath = this.setHoveringPath.bind(this)
+    this.resetDragPaths = this.resetDragPaths.bind(this)
+    this.toggleView = this.toggleView.bind(this)
   }
 
   componentDidMount() {
@@ -73,7 +82,7 @@ class App extends Component<Props, State> {
           }
 
           // Add the item to the files array
-          structureObject['files'].push({label: currentItem, input: false, creating: false})
+          structureObject['files'].push({ label: currentItem, input: false })
 
           // Return the object here so we don't move past this if-statement
           return structureObject
@@ -92,27 +101,22 @@ class App extends Component<Props, State> {
     return structure
   }
 
+  setDraggingPath(to: string) {
+    this.setState({...this.state, draggingPath: to})
+  }
+
+  setHoveringPath(to: string) {
+    this.setState({...this.state, hoveringPath: to}, () => console.log("Hovering path set to ", to))
+  }
+
+  // We have to do both draggingPath and hoveringPath at the same time, or the latter will overwrite
+  // the former before setState is successfully called
+  resetDragPaths() {
+    this.setState({...this.state, draggingPath: "", hoveringPath: ""})
+  }
+
   changePath(to: string) {
-    // Make the path into an array
-    let path = this.state.currentPath.split("/")
-
-    // If instruction is to "go up" and the array has entries
-    if (to === '..' && path.length) {
-      // Remove the last directory form the array
-      path.pop()
-
-      // If it's empty, set it to root
-      if (!path.length) {
-        path.push('/')
-      }
-    } else {
-      // Otherwise we want to go to a directory
-      // Add new directory to path
-      path.push(to)
-    }
-
-    // Change the state by joining the path array into a string again
-    this.setState({...this.state, currentPath: path.join('/')})
+    this.setState({...this.state, currentPath: to})
   }
 
   handleContextMenu(option: string, path: string) {
@@ -134,38 +138,6 @@ class App extends Component<Props, State> {
   }
 
   /**
-   * Method to recursively traverse the structure object and modify it on a certain level
-   * based on a path
-   */
-  traverseDirectoryModify(structure:any, pathArray: string[], i: number, end: number, callback: (structure: any) => any) {
-    // If we've reached the end
-    if (i >= end) {
-      // Call the callback method, update the structure, and return it
-      structure = callback(structure)
-      return structure
-    }
-
-    // If we've not reached the end, traverse further down the structure/ file tree
-    structure[pathArray[i]] = this.traverseDirectoryModify(structure[pathArray[i]], pathArray, i + 1, pathArray.length, callback)
-    return structure
-  }
-  
-  /**
-   * Method to recursively traverse the structure object and check a value on a certain level
-   * based on a path.
-   */
-  traverseDirectoryCheck(structure:any, pathArray: string[], i: number, end: number, callback: (structure: any) => any): any {
-    // If we've reached the end
-    if (i >= end) {
-      // Call the callback method and return its value
-      return callback(structure)
-    }
-
-    // If we've not reached the end, traverse further down the structure/ file tree
-    return this.traverseDirectoryCheck(structure[pathArray[i]], pathArray, i + 1, pathArray.length, callback)
-  }
-
-  /**
    * Check if current path leads to a directory
    */
   isDirectory(pathArray: string[]): boolean {
@@ -176,7 +148,7 @@ class App extends Component<Props, State> {
       return structure?.open !== undefined
     }
 
-    return this.traverseDirectoryCheck(structure, pathArray, 1, pathArray.length, hasOpen)
+    return traverseDirectoryCheck(structure, pathArray, 1, pathArray.length, hasOpen)
   }
 
   /**
@@ -202,7 +174,13 @@ class App extends Component<Props, State> {
    */
   addItem(path: string, type: string) {
     // Split the path into an array
-    const pathArray = path.split('/')
+    let pathArray
+
+    if (this.state.viewType === 'tree') {
+      pathArray = path.split('/')
+    } else {
+      pathArray = this.state.currentPath.split('/')
+    }
 
     // If the selected item is not a directory, remove one item from the pathArray
     if (!this.isDirectory(pathArray)) {
@@ -228,7 +206,7 @@ class App extends Component<Props, State> {
     }
 
     // Recursively iterate through the structure object and set the structure to its return value
-    structure = this.traverseDirectoryModify(structure, pathArray, 1, pathArray.length, add)
+    structure = traverseDirectoryModify(structure, pathArray, 1, pathArray.length, add)
 
     // Update state
     this.setState({...this.state, fileTree: structure})
@@ -252,7 +230,7 @@ class App extends Component<Props, State> {
     let unsulliedStructure = _cloneDeep(this.state.fileTree)
 
     // Recursively iterate through the structure object and set the structure to its return value
-    structure = this.traverseDirectoryModify(structure, pathArray, 1, pathArray.length, (structure) => {
+    structure = traverseDirectoryModify(structure, pathArray, 1, pathArray.length, (structure) => {
       // If filename has a value it means we are dealing with a file
       if (filename) {
         // Create a new files array with all files except the file we want to delete
@@ -276,7 +254,7 @@ class App extends Component<Props, State> {
         // We are going to traverse the file tree again, this time to the parent directory
         // When there, we delete the directory that we have selected.
         // We start with a full file tree and go down the path. Then we return that structure
-        structure = this.traverseDirectoryModify(unsulliedStructure, pathArray, 1, pathArray.length, (structure) => {
+        structure = traverseDirectoryModify(unsulliedStructure, pathArray, 1, pathArray.length, (structure) => {
           delete structure[oldDirName]
 
           return structure
@@ -297,7 +275,7 @@ class App extends Component<Props, State> {
   }
 
   /**
-   * This handles the context menu click for Rename, toggling the input in the file tree
+   * This handles the context menu click for Rename, toggling the input field in the file tree
    */
   toggleItemInput(path: string) {
     // Split the path into an array
@@ -334,7 +312,7 @@ class App extends Component<Props, State> {
     }
     
     // Recursively iterate through the structure object and set the structure to its return value
-    structure = this.traverseDirectoryModify(structure, pathArray, 1, pathArray.length, toggle)
+    structure = traverseDirectoryModify(structure, pathArray, 1, pathArray.length, toggle)
     
     // Update state
     this.setState({...this.state, fileTree: structure})
@@ -344,6 +322,7 @@ class App extends Component<Props, State> {
    * This handles the actual renaming
    */
   renameItem(e: any, path: string, value: string) {
+    console.log(path)
     // Split the path into an array
     const pathArray: string[] = path.split('/')
     let filename: string = ""
@@ -364,7 +343,7 @@ class App extends Component<Props, State> {
     
     // Check to see if we are currently creating the file or directory being renamed
     // We check this because when an item is created, it's given this key.
-    const isCreating = this.traverseDirectoryCheck(structure, pathArray, 1, pathArray.length, (structure) => {
+    const isCreating = traverseDirectoryCheck(structure, pathArray, 1, pathArray.length, (structure) => {
       // If filename exists, we are dealing with a file
       if (filename) {
         // Return file.creating for the last file in the files array.
@@ -415,7 +394,7 @@ class App extends Component<Props, State> {
      */
 
     else if (e.key === 'Enter' || e.key === 'Escape' || e.type === 'blur') {
-      structure = this.traverseDirectoryModify(structure, pathArray, 1, pathArray.length, (structure) => {
+      structure = traverseDirectoryModify(structure, pathArray, 1, pathArray.length, (structure) => {
         // If filename exists we are dealing with a file
         if (filename) {
           // Create a new files array by iterating over the existing one,
@@ -473,7 +452,7 @@ class App extends Component<Props, State> {
             
             // Then we traverse down the file tree, again. This time to the parent directory
             // (remember we popped the pathArray earlier?)
-            structure = this.traverseDirectoryModify(unsulliedStructure, pathArray, 1, pathArray.length, (structure) => {
+            structure = traverseDirectoryModify(unsulliedStructure, pathArray, 1, pathArray.length, (structure) => {
               // Here we delete the key with the old directory name, and we assign
               // its values to a key with the new directory name.
               delete structure[oldDirName]
@@ -501,6 +480,95 @@ class App extends Component<Props, State> {
     }
   }
 
+  moveItem() {
+    const { draggingPath, hoveringPath } = this.state
+
+    console.log(draggingPath, hoveringPath)
+
+    const copyPathArray = draggingPath.split("/")
+    const movePathArray = hoveringPath.split("/")
+
+    let filename = ""
+    
+    let copyStructure = _cloneDeep(this.state.fileTree)
+    let structure = _cloneDeep(this.state.fileTree)
+
+    if (!this.isDirectory(copyPathArray)) {
+      filename = copyPathArray.pop() !
+    }
+
+    // If we drop on a file, we want to move to the directory of that file
+    if (!this.isDirectory(movePathArray)) {
+      movePathArray.pop() !
+    }
+    console.log(movePathArray)
+
+    let isMovingParentToChild = false
+    
+    if (filename === "") {
+      // Make sure we aren't moving a parent directory to a child directory
+      // This also ensures we don't go any further if we are trying to
+      // move a directory to itself
+      isMovingParentToChild = movePathArray.reduce((acc: boolean, cur: string) => {
+        if (copyPathArray[copyPathArray.length - 1] === cur) {
+          acc = true
+        }
+
+        return acc
+      }, false)
+    }
+
+    if (draggingPath !== "" && hoveringPath !== "" && draggingPath !== hoveringPath && !isMovingParentToChild) {
+      let copyDir: string = ""
+      
+      // If it's not a file, we're dealing with a directory
+      if (filename === "") {
+        copyStructure = traverseDirectoryCheck(copyStructure, copyPathArray, 1, copyPathArray.length, (structure) => {
+          copyDir = copyPathArray.pop() !
+
+          return structure
+        })
+
+        // If it's not a file, let's delete the entire directory
+        structure = traverseDirectoryModify(structure, copyPathArray, 1, copyPathArray.length, (structure) => {
+          delete structure[copyDir]
+
+          return structure
+        })
+      } else {
+        // If it's a file that we're copying, we don't really need to copy the entire directory
+        // We do however need to remove the file if it's not a directory
+        structure = traverseDirectoryModify(copyStructure, copyPathArray, 1, copyPathArray.length, (structure) => {
+          structure['files'] = structure['files'].reduce((acc: any[], cur: any) => {
+            if (cur.label !== filename) {
+              acc.push(cur)
+            }
+
+            return acc
+          }, [])
+          return structure
+        })
+      }
+
+      structure = traverseDirectoryModify(structure, movePathArray, 1, movePathArray.length, (structure) => {
+        // If we are moving a directory, we create a new directory at the destination and "paste it"
+        if (filename === "") {
+          structure[copyDir] = copyStructure
+        } else {
+          // If we are dealing with a file, we simply push it to the destination files array
+          structure.files.push({ label: filename, input: false })
+        }
+
+        return structure
+      })
+
+      this.setState({ ...this.state, fileTree: structure, draggingPath: "", hoveringPath: "" })
+      
+    } else {
+      this.resetDragPaths()
+    }
+  }
+
   // For the FileTree layout; toggle whether a directory is open or closed
   toggleDirectory(directoryPath: string) {
     // Split the path into an array
@@ -513,28 +581,99 @@ class App extends Component<Props, State> {
     const toggle = function(structure: any) { structure.open = !structure.open; return structure }
     
     // Recursively iterate through the structure object and set the structure to its return value
-    structure = this.traverseDirectoryModify(structure, pathArray, 1, pathArray.length, toggle)
+    structure = traverseDirectoryModify(structure, pathArray, 1, pathArray.length, toggle)
     
     // Update state
     this.setState({...this.state, fileTree: structure})
   }
 
+  dragOver(e: any) {
+    e.preventDefault()
+
+    // Set the dropEffect to move
+    e.dataTransfer.dropEffect = "move"
+  }
+
+  toggleView() {
+    if (this.state.viewType === 'explorer') {
+      this.setState({...this.state, viewType: 'tree'})
+    } else {
+      this.setState({...this.state, viewType: 'explorer'})
+    }
+  }
+
   render() {
+    const toggleButtonStyle = {
+      borderRadius: "2%",
+      border: "2px solid #9a9a9a",
+      background: "#3a3a3a",
+      color: "#fafafa",
+      padding: "0.3em",
+      margin: "0.5em 0",
+      cursor: "pointer",
+      textAlign: "center",
+    }
+
     return (
-        // <FileView
-        //   viewType={this.state.viewType}
-        //   currentPath={this.state.currentPath}
-        //   fileTree={this.state.fileTree}
-        //   changePath={this.changePath}
-        // />
-      <div>
+      <div
+        style={{
+          background: "#232323",
+          color: "#fafafa",
+          padding: "1em",
+          width: "100%",
+          minHeight: "100vh",
+          fontFamily: 'Verdana',
+          fontSize: '14px',
+          boxSizing: 'border-box',
+        }}
+        onDragOver={this.dragOver}
+      >
+        {this.state.viewType === 'explorer' ?
+          <div style={toggleButtonStyle} onClick={this.toggleView}>Change to Tree View</div> :
+          <div style={toggleButtonStyle} onClick={this.toggleView}>Change to Explorer View</div>}
+
+        <div style={{height: '2px', width: '100%', background: "#3a3a3a", marginBottom: '1em'}} />
+        
+        {this.state.viewType === 'explorer' ? <FileView
+          currentPath={this.state.currentPath}
+          fileTree={this.state.fileTree}
+          changePath={this.changePath}
+          renameItem={this.renameItem}
+          moveItem={this.moveItem}
+          setDraggingPath={this.setDraggingPath}
+          draggingPath={this.state.draggingPath}
+          setHoveringPath={this.setHoveringPath}
+          hoveringPath={this.state.hoveringPath}
+          resetDragPaths={this.resetDragPaths}
+        /> :
         <FileTree
           fileTree={this.state.fileTree}
           toggleDirectory={this.toggleDirectory}
           renameItem={this.renameItem}
+          moveItem={this.moveItem}
+          setDraggingPath={this.setDraggingPath}
+          draggingPath={this.state.draggingPath}
+          setHoveringPath={this.setHoveringPath}
+          hoveringPath={this.state.hoveringPath}
+          resetDragPaths={this.resetDragPaths}
+        />}
+
+        <ContextMenu
+          handleContextMenu={this.handleContextMenu}
+          viewType={this.state.viewType}
+          currentPath={this.state.currentPath}
         />
 
-        <ContextMenu handleContextMenu={this.handleContextMenu} />
+        <div id="dragImageNode"
+        style={{
+          position: "absolute",
+          top: "-100px",
+          background: "#1256AC",
+          color: "#1256AC",
+          height: "80px",
+          width: "80px",
+          borderRadius: "2%",
+        }} />
       </div>
     )
   }
