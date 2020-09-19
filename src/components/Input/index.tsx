@@ -70,13 +70,13 @@ export default class FileTreeDirectory extends Component<FileTreeInputProps, Fil
   }
 
   render() {
-    const { itemName, itemPath } = this.props
+    const { itemPath, indent = 0 } = this.props
 
     return (
         <input
           value={this.state.inputValue}
           data-path={itemPath}
-          style={{marginLeft: (1 * this.props.indent) + 'em'}}
+          style={{marginLeft: (1 * indent) + 'em'}}
           onBlur={this.handleRename}
           onChange={(e) => { this.setState({ inputValue: e.target.value }) }}
           ref={this.inputRef}
