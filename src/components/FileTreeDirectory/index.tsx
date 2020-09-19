@@ -1,5 +1,4 @@
 import React, { Component } from 'react'
-import { useDrag } from 'react-dnd'
 
 import Input from '../Input'
 
