@@ -91,7 +91,8 @@ export default class FileView extends Component<FileViewProps, FileViewState> {
       // Iterate over all keys in currentPath
       Object.keys(currentPath).map((item: string) => {
         if (item === 'files') {
-          // If the current object key is `files`, simply put the files array in a files variable
+          // If the current object key is `files`, loop through it, create a new files array,
+          // and oush an object containing label, path and input to it
           let filePath = props.currentPath === '/' ? '' : props.currentPath
           files = currentPath['files'].map((file: any) => {
             return {label: file.label, path: `${filePath}/${file.label}`, input: file.input}
@@ -99,8 +100,7 @@ export default class FileView extends Component<FileViewProps, FileViewState> {
 
           return
         } else if (item !== 'open' && item !== 'creating' && item !== 'input') {
-
-          // If the above didn't return, it means we are dealing with a directory
+          // If the above didn't return, we are dealing with a directory (if we apply some filters)
           // Push it to the directories array
           let dirPath = props.currentPath === '/' ? '' : props.currentPath
           directories.push({ label: item, path: `${dirPath}/${item}`, input: currentPath[item]['input']})
@@ -108,6 +108,8 @@ export default class FileView extends Component<FileViewProps, FileViewState> {
         }
       })
 
+      // Doing this to ensure we don't get paths like /////, which was an issue
+      // Basically, filter out any empty entries in the array (for example root had ["", ""])
       let parentPath = props.currentPath.split('/').reduce((acc:string[], cur: string) => {
         if (cur !== "") {
           acc.push(cur)
@@ -116,12 +118,14 @@ export default class FileView extends Component<FileViewProps, FileViewState> {
         return acc
       }, [])
 
+      // Now if it's not at root, remove one entry
       if (parentPath.length > 0) {
         parentPath.pop()
       }
 
       parentPath = parentPath.join('/')
 
+      // If the path is empty, set it to /, otherwise, prepend it with a /
       if (parentPath == '') {
         parentPath = '/'
       } else {
@@ -143,6 +147,8 @@ export default class FileView extends Component<FileViewProps, FileViewState> {
           flexWrap: 'wrap'
         }}
       >
+        {/* This first Directory element is for moving up one level.
+        Only visible if currentPath is not root */}
       {this.props.currentPath !== '/' ? <Directory
           directoryName=".."
           directoryPath={this.state.parentPath}

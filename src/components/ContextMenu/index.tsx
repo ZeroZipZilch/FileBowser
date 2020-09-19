@@ -44,22 +44,23 @@ export default class ContextMenu extends Component<ContextMenuProps, ContextMenu
   }
 
   handleContextMenu = (e: any) => {
+    // If an item is right-clicked
     if (e.target.closest(`[class=hasContext]`)) {
       this.setState({
         contextPath: e.target.dataset.path,
         xPos: `${e.pageX}px`,
         yPos: `${e.pageY}px`,
         showMenu: true,
-        onlyAdd: false,
+        onlyAdd: false, // This determines wether we can rename/ delete items
       })
-    } else {
+    } else { // Otherwise, if anywhere else on the document/ window is right-clicked
       if (this.props.viewType === 'tree') {
         this.setState({
           contextPath: '/',
           xPos: `${e.pageX}px`,
           yPos: `${e.pageY}px`,
           showMenu: true,
-          onlyAdd: true,
+          onlyAdd: true, // This determines wether we can rename/ delete items
         })
       } else {
         this.setState({
@@ -67,7 +68,7 @@ export default class ContextMenu extends Component<ContextMenuProps, ContextMenu
           xPos: `${e.pageX}px`,
           yPos: `${e.pageY}px`,
           showMenu: true,
-          onlyAdd: true,
+          onlyAdd: true, // This determines wether we can rename/ delete items
         })
       }
     }

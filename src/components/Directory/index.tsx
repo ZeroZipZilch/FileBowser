@@ -39,6 +39,10 @@ export default class Directory extends Component<DirectoryProps, DirectoryState>
     this.mouseLeave = this.mouseLeave.bind(this);
   }
 
+  /**
+   * When dragging starts, update dragging path in app state
+   * Set the drag image
+   */
   dragStart(e: any) {
     this.props.setDraggingPath(this.props.directoryPath)
 
@@ -49,12 +53,19 @@ export default class Directory extends Component<DirectoryProps, DirectoryState>
     e.dataTransfer.setDragImage(node, 0, 0)
   }
   
+  /**
+   * When an items area is, set the hoveringPath to the
+   * item path in app state
+   */
   dragEnter(e: any) {
     if (e.target.dataset.path !== this.props.draggingPath) {
       this.props.setHoveringPath(this.props.directoryPath)
     }
   }
 
+  /**
+   * While dragging over an item, change cursor to move "drop effect"
+   */
   dragOver(e: any) {
     e.preventDefault()
 
@@ -62,6 +73,10 @@ export default class Directory extends Component<DirectoryProps, DirectoryState>
     e.dataTransfer.dropEffect = "move"
   }
   
+  /**
+   * If leaving a previously hovered item and said item isn't the item we're dragging,
+   * unset the hoveringPath
+   */
   dragLeave(e: any) {
     if (e.target.dataset.path !== this.props.draggingPath && this.props.hoveringPath === e.target.dataset.path) {
       this.props.setHoveringPath("")
@@ -72,6 +87,10 @@ export default class Directory extends Component<DirectoryProps, DirectoryState>
     this.props.moveItem()
   }
 
+  /**
+   * I hate myself for doing this, but this was the simplest way to
+   * add hover effects while using inline styles..
+   */
   mouseEnter() {
     this.setState({ hovering: true })
   }
@@ -83,12 +102,14 @@ export default class Directory extends Component<DirectoryProps, DirectoryState>
   render() {
     const { changePath, renameItem, moveItem, directoryName, directoryPath, draggingPath, hoveringPath } = this.props
 
+    // If input is true for this item, show input field rather than the directory
     if (this.props.input) {
       return (
         <Input itemName={directoryName} itemPath={directoryPath} renameItem={renameItem} />
       )
     }
 
+    // Otherwise show the directory
     return (
         <div
           draggable
