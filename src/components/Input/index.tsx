@@ -3,10 +3,11 @@ import React, { Component } from 'react'
 const _isEqual = require('lodash/isEqual')
 
 interface FileTreeInputProps {
-  itemName: string,
-  itemPath: string,
-  indent?: number,
-  renameItem: (e: any, itemPath: string, value: string) => void
+  itemName: string
+  itemPath: string
+  itemType: string
+  indent?: number
+  renameItem: (e: any, itemPath: string, value: string, itemType: string) => void
 }
 
 interface FileTreeInputState {
@@ -56,7 +57,8 @@ export default class FileTreeDirectory extends Component<FileTreeInputProps, Fil
     this.props.renameItem(
       e,
       this.props.itemPath,
-      this.state.inputValue
+      this.state.inputValue,
+      this.props.itemType
     )
   }
 

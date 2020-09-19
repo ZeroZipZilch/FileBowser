@@ -12,16 +12,16 @@ interface FileViewState {
 }
 
 interface FileViewProps {
-  currentPath: string,
-  fileTree: any,
-  changePath: (to: string) => void,
-  renameItem: (e: any, itemPath: string, value: string) => void,
-  setDraggingPath: (path: string) => void,
-  draggingPath: string,
-  setHoveringPath: (path: string) => void,
-  hoveringPath: string,
-  resetDragPaths: () => void,
-  moveItem: () => void,
+  currentPath: string
+  fileTree: any
+  draggingPath: string
+  hoveringPath: string
+  changePath: (to: string) => void
+  renameItem: (e: any, itemPath: string, value: string, itemType: string) => void
+  setDraggingPath: (path: string, type: string) => void
+  setHoveringPath: (path: string, type: string) => void
+  resetDragPaths: () => void
+  moveItem: () => void
 }
 
 export default class FileView extends Component<FileViewProps, FileViewState> {
@@ -139,7 +139,6 @@ export default class FileView extends Component<FileViewProps, FileViewState> {
   }
 
   render() {
-    console.log(this.state)
     return (
       <div
         style={{
@@ -165,7 +164,7 @@ export default class FileView extends Component<FileViewProps, FileViewState> {
 
       {this.state.directories.map((directory: any, i: number) => {
         return <Directory
-          key={`fileviewdirectory-${i}-${directory.label}`}
+          key={`fileviewdirectory-${i}-${directory.label}-${directory.path}`}
           directoryName={directory.label}
           directoryPath={directory.path}
           input={directory.input}
@@ -182,7 +181,7 @@ export default class FileView extends Component<FileViewProps, FileViewState> {
 
       {this.state.files.map((file: any, i: number) => {
         return <File
-          key={`fileviewfile-${i}-${file.label}`}
+          key={`fileviewfile-${i}-${file.label}-${file.path}`}
           fileName={file.label}
           filePath={file.path}
           input={file.input}

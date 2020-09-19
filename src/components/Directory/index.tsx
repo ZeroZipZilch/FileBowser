@@ -6,17 +6,17 @@ import Input from '../Input'
 const _isEqual = require('lodash/isEqual')
 
 interface DirectoryProps {
-  directoryName: string,
-  directoryPath: string,
-  input: boolean,
-  changePath: (directoryPath: string) => void,
-  renameItem: (e: any, itemPath: string, value: string) => void,
-  setDraggingPath: (path: string) => void,
-  draggingPath: string,
-  setHoveringPath: (path: string) => void,
-  hoveringPath: string,
-  resetDragPaths: () => void,
-  moveItem: () => void,
+  directoryName: string
+  directoryPath: string
+  input: boolean
+  draggingPath: string
+  hoveringPath: string
+  changePath: (directoryPath: string) => void
+  renameItem: (e: any, itemPath: string, value: string, itemType: string) => void
+  setDraggingPath: (path: string, type: string) => void
+  setHoveringPath: (path: string, type: string) => void
+  resetDragPaths: () => void
+  moveItem: () => void
 }
 
 interface DirectoryState {
@@ -44,7 +44,7 @@ export default class Directory extends Component<DirectoryProps, DirectoryState>
    * Set the drag image
    */
   dragStart(e: any) {
-    this.props.setDraggingPath(this.props.directoryPath)
+    this.props.setDraggingPath(this.props.directoryPath, 'dir')
 
     e.dataTransfer.setData("text", e.target.id);
     e.dataTransfer.effectAllowed = "move";
@@ -59,7 +59,7 @@ export default class Directory extends Component<DirectoryProps, DirectoryState>
    */
   dragEnter(e: any) {
     if (e.target.dataset.path !== this.props.draggingPath) {
-      this.props.setHoveringPath(this.props.directoryPath)
+      this.props.setHoveringPath(this.props.directoryPath, 'dir')
     }
   }
 
@@ -79,7 +79,7 @@ export default class Directory extends Component<DirectoryProps, DirectoryState>
    */
   dragLeave(e: any) {
     if (e.target.dataset.path !== this.props.draggingPath && this.props.hoveringPath === e.target.dataset.path) {
-      this.props.setHoveringPath("")
+      this.props.setHoveringPath('', '')
     }
   }
 
@@ -105,7 +105,7 @@ export default class Directory extends Component<DirectoryProps, DirectoryState>
     // If input is true for this item, show input field rather than the directory
     if (this.props.input) {
       return (
-        <Input itemName={directoryName} itemPath={directoryPath} renameItem={renameItem} />
+        <Input itemName={directoryName} itemPath={directoryPath} renameItem={renameItem} itemType={'dir'} />
       )
     }
 
@@ -122,6 +122,7 @@ export default class Directory extends Component<DirectoryProps, DirectoryState>
           onMouseLeave={this.mouseLeave}
           onClick={() => {changePath(directoryPath)}}
           data-path={directoryPath}
+          data-type="dir"
           className="hasContext"
           style={{
             display: "flex",

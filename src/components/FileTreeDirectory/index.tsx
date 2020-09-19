@@ -6,19 +6,19 @@ import Input from '../Input'
 const _isEqual = require('lodash/isEqual')
 
 interface FileTreeDirectoryProps {
-  directoryName: string,
-  directoryPath: string,
-  indent: number,
-  open: boolean,
-  input: boolean,
-  toggleDirectory: (directoryPath: string) => void,
-  renameItem: (e: any, itemPath: string, value: string) => void,
-  setDraggingPath: (path: string) => void,
-  draggingPath: string,
-  setHoveringPath: (path: string) => void,
-  hoveringPath: string,
-  resetDragPaths: () => void,
-  moveItem: () => void,
+  directoryName: string
+  directoryPath: string
+  indent: number
+  open: boolean
+  input: boolean
+  draggingPath: string
+  hoveringPath: string
+  toggleDirectory: (directoryPath: string) => void
+  renameItem: (e: any, itemPath: string, value: string, itemType: string) => void
+  setDraggingPath: (path: string, type: string) => void
+  setHoveringPath: (path: string, type: string) => void
+  resetDragPaths: () => void
+  moveItem: () => void
 }
 
 interface FileTreeDirectoryState {
@@ -45,7 +45,7 @@ export default class FileTreeDirectory extends Component<FileTreeDirectoryProps,
    * Set the drag image
    */
   dragStart(e: any) {
-    this.props.setDraggingPath(this.props.directoryPath)
+    this.props.setDraggingPath(this.props.directoryPath, 'dir')
 
     e.dataTransfer.setData("text", e.target.id);
     e.dataTransfer.effectAllowed = "move";
@@ -60,11 +60,11 @@ export default class FileTreeDirectory extends Component<FileTreeDirectoryProps,
    */
   dragEnter(e: any) {
     if (e.target.dataset.path !== this.props.draggingPath) {
-      this.props.setHoveringPath(this.props.directoryPath)
+      this.props.setHoveringPath(this.props.directoryPath, 'dir')
     }
     
     if (e.target.dataset.path === this.props.draggingPath) {
-      this.props.setHoveringPath(this.props.directoryPath)
+      this.props.setHoveringPath(this.props.directoryPath, 'dir')
     }
   }
 
@@ -100,7 +100,7 @@ export default class FileTreeDirectory extends Component<FileTreeDirectoryProps,
     // If input is true for this item, show input field rather than the directory
     if (this.props.input) {
       return (
-        <Input itemName={directoryName} itemPath={directoryPath} indent={indent} renameItem={renameItem} />
+        <Input itemName={directoryName} itemPath={directoryPath} indent={indent} renameItem={renameItem} itemType="dir" />
       )
     }
 
@@ -116,6 +116,7 @@ export default class FileTreeDirectory extends Component<FileTreeDirectoryProps,
           onMouseLeave={this.mouseLeave}
           onClick={() => toggleDirectory(directoryPath)}
           data-path={directoryPath}
+          data-type="dir"
           className="hasContext"
           style={{
             display: "flex",

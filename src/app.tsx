@@ -15,12 +15,14 @@ document.body.appendChild(mainElement);
 interface Props {}
 
 interface State {
-  fileTree: {},
-  currentPath: string,
-  contextPath: string,
-  draggingPath: string, // Dragging path
+  fileTree: {}
+  currentPath: string
+  contextPath: string
+  draggingPath: string // Dragging path
+  draggingType: string // file or dir
   hoveringPath: string // Hovering path
-  viewType: string, // tree, windows explorer
+  hoveringType: string // file or dir
+  viewType: string // tree, windows explorer
 }
 
 class App extends Component<Props, State> {
@@ -33,7 +35,9 @@ class App extends Component<Props, State> {
       contextPath: '',
       viewType: 'explorer',
       draggingPath: "",
+      draggingType: "",
       hoveringPath: "",
+      hoveringType: "",
     }
 
     this.changePath = this.changePath.bind(this)
@@ -101,78 +105,80 @@ class App extends Component<Props, State> {
     return structure
   }
 
-  setDraggingPath(to: string) {
-    this.setState({...this.state, draggingPath: to})
+  setDraggingPath(to: string, type: string) {
+    this.setState({...this.state, draggingPath: to, draggingType: type})
   }
 
-  setHoveringPath(to: string) {
-    this.setState({...this.state, hoveringPath: to}, () => console.log("Hovering path set to ", to))
+  setHoveringPath(to: string, type: string) {
+    this.setState({...this.state, hoveringPath: to, hoveringType: type})
   }
 
   // We have to do both draggingPath and hoveringPath at the same time, or the latter will overwrite
   // the former before setState is successfully called
   resetDragPaths() {
-    this.setState({...this.state, draggingPath: "", hoveringPath: ""})
+    this.setState({...this.state, draggingPath: "", draggingType: "", hoveringPath: "", hoveringType: ""})
   }
 
+  // This is for the explorer view
   changePath(to: string) {
     this.setState({...this.state, currentPath: to})
   }
 
-  handleContextMenu(option: string, path: string) {
+  handleContextMenu(option: string, path: string, pathType: string) {
     switch (option) {
       case "contextAddFile":
-        this.addFile(path)
+        this.addFile(path, pathType)
         break;
       case "contextAddDir":
-        this.addDirectory(path)
+        this.addDirectory(path, pathType)
         break;
       case "contextDelete":
-        this.deleteItem(path)
+        this.deleteItem(path, pathType)
         break;
       case "contextRename":
-        this.toggleItemInput(path)
+        this.toggleItemInput(path, pathType)
         break;
-      default:
     }
   }
 
   /**
-   * Check if current path leads to a directory
+   * Removes empty "" entries from the path array
    */
-  isDirectory(pathArray: string[]): boolean {
-    let structure = _cloneDeep(this.state.fileTree)
+  cleanPathArray(pathArray: string[]): string[] {
+    return pathArray.reduce((acc: string[], cur: string) => {
+      if (cur !== "") {
+        acc.push(cur)
+      }
 
-    const hasOpen = (structure: any): boolean => {
-      // If open exists, it's a directory. Otherwise it's a file
-      return structure?.open !== undefined
-    }
-
-    return traverseDirectoryCheck(structure, pathArray, 1, pathArray.length, hasOpen)
+      return acc
+    }, [])
   }
 
   /**
    * Add a file to path
    * @param path path to where to add the file
+   * @param pathType did we rightclick a file or dir?
    */
-  addFile(path: string): void {
-    this.addItem(path, 'file')
+  addFile(path: string, pathType: string): void {
+    this.addItem(path, 'file', pathType)
   }
 
   /**
    * Add a directory to path
    * @param path path to where to add the directory
+   * @param pathType did we rightclick a file or dir?
    */
-  addDirectory(path: string) {
-    this.addItem(path, 'dir')
+  addDirectory(path: string, pathType: string) {
+    this.addItem(path, 'dir', pathType)
   }
 
   /**
    * Add an item to the structure based on path
    * @param path path to where to add the item
-   * @param type type of item (dir | file)
+   * @param itemType type of item (dir | file)
+   * @param pathType did we rightclick a file or dir?
    */
-  addItem(path: string, type: string) {
+  addItem(path: string, itemType: string, pathType: string) {
     // Split the path into an array
     let pathArray
 
@@ -182,8 +188,10 @@ class App extends Component<Props, State> {
       pathArray = this.state.currentPath.split('/')
     }
 
-    // If the selected item is not a directory, remove one item from the pathArray
-    if (!this.isDirectory(pathArray)) {
+    pathArray = this.cleanPathArray(pathArray)
+
+    // If the selected item is a file, remove one item from the pathArray
+    if (pathType === 'file') {
       pathArray.pop();
     }
 
@@ -196,7 +204,7 @@ class App extends Component<Props, State> {
         structure.open = true
       }
 
-      if (type === 'dir') {
+      if (itemType === 'dir') {
         structure['New Directory'] = { open: false, input: true, creating: true, files: [] }
       } else {
         structure['files'].push({label: "New File", input: true, creating: true})
@@ -206,19 +214,19 @@ class App extends Component<Props, State> {
     }
 
     // Recursively iterate through the structure object and set the structure to its return value
-    structure = traverseDirectoryModify(structure, pathArray, 1, pathArray.length, add)
+    structure = traverseDirectoryModify(structure, pathArray, 0, pathArray.length, add)
 
     // Update state
     this.setState({...this.state, fileTree: structure})
   }
 
-  deleteItem(path: string) {
+  deleteItem(path: string, pathType: string) {
     // Split the path into an array
     const pathArray: string[] = path.split('/')
     let filename: string = ""
 
     // If the selected item is not a directory, remove one item from the pathArray
-    if (!this.isDirectory(pathArray)) {
+    if (pathType === 'file') {
       filename = pathArray.pop() !
     }
 
@@ -277,14 +285,14 @@ class App extends Component<Props, State> {
   /**
    * This handles the context menu click for Rename, toggling the input field in the file tree
    */
-  toggleItemInput(path: string) {
+  toggleItemInput(path: string, pathType: string) {
     // Split the path into an array
     const pathArray = path.split('/')
     let filename: string = ""
 
     // If the selected item is not a directory, remove last item from the pathArray
     // and assign its value to a variable
-    if (!this.isDirectory(pathArray)) {
+    if (pathType === 'file') {
       filename = pathArray.pop() !
     }
 
@@ -321,15 +329,14 @@ class App extends Component<Props, State> {
   /**
    * This handles the actual renaming
    */
-  renameItem(e: any, path: string, value: string) {
-    console.log(path)
+  renameItem(e: any, path: string, value: string, pathType: string) {
     // Split the path into an array
-    const pathArray: string[] = path.split('/')
+    const pathArray: string[] = this.cleanPathArray(path.split('/'))
     let filename: string = ""
 
     // If the selected item is not a directory, remove one item from the pathArray
     // and assign it to a variable
-    if (!this.isDirectory(pathArray)) {
+    if (pathType === 'file') {
       filename = pathArray.pop() !
     }
 
@@ -343,7 +350,7 @@ class App extends Component<Props, State> {
     
     // Check to see if we are currently creating the file or directory being renamed
     // We check this because when an item is created, it's given this key.
-    const isCreating = traverseDirectoryCheck(structure, pathArray, 1, pathArray.length, (structure) => {
+    const isCreating = traverseDirectoryCheck(structure, pathArray, 0, pathArray.length, (structure) => {
       // If filename exists, we are dealing with a file
       if (filename) {
         // Return file.creating for the last file in the files array.
@@ -358,6 +365,40 @@ class App extends Component<Props, State> {
       }
     })
 
+    const paLength = pathType === 'dir' ? pathArray.length - 1 : pathArray.length
+    
+    traverseDirectoryCheck(structure, pathArray, 0, paLength, (structure) => {
+      let safeValue = value
+      let valueIndex = 0
+
+      // while (structure[value] !== undefined) {
+      //   // While a directory exists with the given name
+      //   // Append a number to it
+      //   valueIndex += 1
+      //   value = `${safeValue} (${valueIndex})`
+      // }
+
+      while (true) {
+        let stillDuplicate
+        
+        stillDuplicate = structure.files.reduce((acc: boolean, cur: any) => {
+          if(cur.label === value) acc = true
+          return acc
+        }, false)
+
+        if (stillDuplicate === false) {
+          stillDuplicate = structure[value] !== undefined
+        }
+        
+        if (!stillDuplicate) break
+
+        // While a file exists with the given name
+        // Append a number to it
+        valueIndex += 1
+        value = `${safeValue} (${valueIndex})`
+      }
+    })
+
     /**
      * If pressing ESC and key creating DOES exist: call deleteItem ()
      * If pressing ENTER and key creating DOES exist and input is EMPTY: call deleteItem()
@@ -367,7 +408,7 @@ class App extends Component<Props, State> {
       (value === "" && (e.key === 'Enter' || e.type === 'blur') && isCreating) ||
       (e.key === 'Escape' && isCreating)
     ) {
-      this.deleteItem(path)
+      this.deleteItem(path, pathType)
       return // Return because we don't want to go past this point. Just a precaution.
     }
 
@@ -394,7 +435,7 @@ class App extends Component<Props, State> {
      */
 
     else if (e.key === 'Enter' || e.key === 'Escape' || e.type === 'blur') {
-      structure = traverseDirectoryModify(structure, pathArray, 1, pathArray.length, (structure) => {
+      structure = traverseDirectoryModify(structure, pathArray, 0, pathArray.length, (structure) => {
         // If filename exists we are dealing with a file
         if (filename) {
           // Create a new files array by iterating over the existing one,
@@ -452,7 +493,7 @@ class App extends Component<Props, State> {
             
             // Then we traverse down the file tree, again. This time to the parent directory
             // (remember we popped the pathArray earlier?)
-            structure = traverseDirectoryModify(unsulliedStructure, pathArray, 1, pathArray.length, (structure) => {
+            structure = traverseDirectoryModify(unsulliedStructure, pathArray, 0, pathArray.length, (structure) => {
               // Here we delete the key with the old directory name, and we assign
               // its values to a key with the new directory name.
               delete structure[oldDirName]
@@ -481,27 +522,24 @@ class App extends Component<Props, State> {
   }
 
   moveItem() {
-    const { draggingPath, hoveringPath } = this.state
+    const { draggingPath, draggingType, hoveringPath, hoveringType } = this.state
 
-    console.log(draggingPath, hoveringPath)
-
-    const copyPathArray = draggingPath.split("/")
-    const movePathArray = hoveringPath.split("/")
+    const copyPathArray = this.cleanPathArray(draggingPath.split("/"))
+    const movePathArray = this.cleanPathArray(hoveringPath.split("/"))
 
     let filename = ""
     
     let copyStructure = _cloneDeep(this.state.fileTree)
     let structure = _cloneDeep(this.state.fileTree)
 
-    if (!this.isDirectory(copyPathArray)) {
+    if (draggingType === 'file') {
       filename = copyPathArray.pop() !
     }
 
     // If we drop on a file, we want to move to the directory of that file
-    if (!this.isDirectory(movePathArray)) {
+    if (hoveringType === 'file') {
       movePathArray.pop() !
     }
-    console.log(movePathArray)
 
     let isMovingParentToChild = false
     
@@ -523,22 +561,25 @@ class App extends Component<Props, State> {
       
       // If it's not a file, we're dealing with a directory
       if (filename === "") {
-        copyStructure = traverseDirectoryCheck(copyStructure, copyPathArray, 1, copyPathArray.length, (structure) => {
+        copyStructure = traverseDirectoryCheck(copyStructure, copyPathArray, 0, copyPathArray.length, (structure) => {
+          // Get the name of the directory, and pop it from the pathArray so we can work on the 
+          // parent level further down
           copyDir = copyPathArray.pop() !
 
           return structure
         })
 
         // If it's not a file, let's delete the entire directory
-        structure = traverseDirectoryModify(structure, copyPathArray, 1, copyPathArray.length, (structure) => {
+        structure = traverseDirectoryModify(structure, copyPathArray, 0, copyPathArray.length, (structure) => {
           delete structure[copyDir]
 
           return structure
         })
+
       } else {
         // If it's a file that we're copying, we don't really need to copy the entire directory
         // We do however need to remove the file if it's not a directory
-        structure = traverseDirectoryModify(copyStructure, copyPathArray, 1, copyPathArray.length, (structure) => {
+        structure = traverseDirectoryModify(copyStructure, copyPathArray, 0, copyPathArray.length, (structure) => {
           structure['files'] = structure['files'].reduce((acc: any[], cur: any) => {
             if (cur.label !== filename) {
               acc.push(cur)
@@ -550,13 +591,42 @@ class App extends Component<Props, State> {
         })
       }
 
-      structure = traverseDirectoryModify(structure, movePathArray, 1, movePathArray.length, (structure) => {
+      structure = traverseDirectoryModify(structure, movePathArray, 0, movePathArray.length, (structure) => {
         // If we are moving a directory, we create a new directory at the destination and "paste it"
+        let value = ""
         if (filename === "") {
-          structure[copyDir] = copyStructure
+          value = copyDir
         } else {
-          // If we are dealing with a file, we simply push it to the destination files array
-          structure.files.push({ label: filename, input: false })
+          value = filename
+        }
+
+        // If the directory already exists
+        // Append a number to it
+        let safeValue = value
+        let valueIndex = 0
+        
+        while (true) {
+          let stillDuplicate
+      
+          stillDuplicate = structure.files.reduce((acc: boolean, cur: any) => {
+            if(cur.label === value) acc = true
+            return acc
+          }, false)
+
+          if (stillDuplicate === false) {
+            stillDuplicate = structure[value] !== undefined
+          }
+          
+          if (!stillDuplicate) break
+
+          valueIndex += 1
+          value = `${safeValue} (${valueIndex})`
+        } 
+        
+        if (filename === "") {
+          structure[value] = copyStructure
+        } else { // If dealing with a file, push it to the destination files array
+          structure.files.push({ label: value, input: false })
         }
 
         return structure
@@ -611,7 +681,7 @@ class App extends Component<Props, State> {
       padding: "0.3em",
       margin: "0.5em 0",
       cursor: "pointer",
-      textAlign: "center",
+      textAlign: "center" as 'center', // as 'center' just to prevent a typescript error. Idk tbh..
     }
 
     return (
@@ -637,31 +707,31 @@ class App extends Component<Props, State> {
         {this.state.viewType === 'explorer' ? <FileView
           currentPath={this.state.currentPath}
           fileTree={this.state.fileTree}
+          draggingPath={this.state.draggingPath}
+          hoveringPath={this.state.hoveringPath}
           changePath={this.changePath}
           renameItem={this.renameItem}
           moveItem={this.moveItem}
           setDraggingPath={this.setDraggingPath}
-          draggingPath={this.state.draggingPath}
           setHoveringPath={this.setHoveringPath}
-          hoveringPath={this.state.hoveringPath}
           resetDragPaths={this.resetDragPaths}
         /> :
         <FileTree
           fileTree={this.state.fileTree}
+          draggingPath={this.state.draggingPath}
+          hoveringPath={this.state.hoveringPath}
           toggleDirectory={this.toggleDirectory}
           renameItem={this.renameItem}
           moveItem={this.moveItem}
           setDraggingPath={this.setDraggingPath}
-          draggingPath={this.state.draggingPath}
           setHoveringPath={this.setHoveringPath}
-          hoveringPath={this.state.hoveringPath}
           resetDragPaths={this.resetDragPaths}
         />}
 
         <ContextMenu
-          handleContextMenu={this.handleContextMenu}
           viewType={this.state.viewType}
           currentPath={this.state.currentPath}
+          handleContextMenu={this.handleContextMenu}
         />
 
         <div id="dragImageNode"

@@ -9,15 +9,15 @@ import FileTreeDirectory from '../FileTreeDirectory'
 import FileTreeFile from '../FileTreeFile'
 
 interface FileTreeProps {
-  fileTree: any,
-  toggleDirectory: (directoryPath: string) => void,
-  renameItem: (e: any, itemPath: string, value: string) => void,
-  moveItem: () => void,
-  setDraggingPath: (path: string) => void,
-  draggingPath: string,
-  setHoveringPath: (path: string) => void,
-  hoveringPath: string,
-  resetDragPaths: () => void,
+  fileTree: any
+  draggingPath: string
+  hoveringPath: string
+  toggleDirectory: (directoryPath: string) => void
+  renameItem: (e: any, itemPath: string, value: string, itemType: string) => void
+  moveItem: () => void
+  setDraggingPath: (path: string, type: string) => void
+  setHoveringPath: (path: string, type: string) => void
+  resetDragPaths: () => void
 }
 
 export default class FileTree extends Component<FileTreeProps> {
@@ -44,7 +44,7 @@ export default class FileTree extends Component<FileTreeProps> {
         if (item !== 'files' && item !== 'open' && item !== 'input' && item !== 'creating') {
           // If it's a directory, add the directory to the items array we created
           const Dir = <FileTreeDirectory
-            key={`filetreedirectory-${i}-${index}-${item}`}
+            key={`filetreedirectory-${i}-${index}-${item}-${path}/${item}`}
             directoryName={item}
             directoryPath={`${path}/${item}`}
             toggleDirectory={this.props.toggleDirectory}
@@ -78,9 +78,9 @@ export default class FileTree extends Component<FileTreeProps> {
         fileTree['files'].map((file: {label: string, input: boolean}, index: number) => {
           // Create the node for the file
           const File = <FileTreeFile
-            key={`filetreefile-${i}-${index}-${file['label']}`}
-            fileName={file['label']}
-            filePath={`${path}/${file['label']}`}
+            key={`filetreefile-${i}-${index}-${file.label}-${path}/${file.label}`}
+            fileName={file.label}
+            filePath={`${path}/${file.label}`}
             indent={i}
             input={file['input']}
             renameItem={this.props.renameItem}
@@ -106,7 +106,7 @@ export default class FileTree extends Component<FileTreeProps> {
 
   render() {
     return (
-      <div onDragLeave={(e) => { if (this.props.hoveringPath === "") this.props.setHoveringPath("/") }}>
+      <div onDragLeave={(e) => { if (this.props.hoveringPath === "") this.props.setHoveringPath('/', 'dir') }}>
         {this.traverseFileTree(this.props.fileTree, 0, '')}
       </div>
     )

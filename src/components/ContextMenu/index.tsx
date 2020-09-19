@@ -1,22 +1,24 @@
 import React, { Component } from 'react'
 
 interface ContextMenuProps {
-  viewType: string,
-  currentPath: string,
-  handleContextMenu: (option: string, path: string) => void,
+  viewType: string
+  currentPath: string
+  handleContextMenu: (option: string, path: string, type: string) => void
 }
 
 interface ContextMenuState {
-  contextPath: string,
-  xPos: string,
-  yPos: string,
-  showMenu: boolean,
-  onlyAdd: boolean,
+  contextPath: string
+  contextType: string
+  xPos: string
+  yPos: string
+  showMenu: boolean
+  onlyAdd: boolean
 }
 
 export default class ContextMenu extends Component<ContextMenuProps, ContextMenuState> {
   state = {
     contextPath: '',
+    contextType: '',
     xPos: "0px",
     yPos: "0px:",
     showMenu: false,
@@ -37,10 +39,10 @@ export default class ContextMenu extends Component<ContextMenuProps, ContextMenu
     const clickedItem = e.target.closest(`[class=context-menu-item]`)
 
     if (clickedItem) {
-      this.props.handleContextMenu(e.target.id, this.state.contextPath)
+      this.props.handleContextMenu(e.target.id, this.state.contextPath, this.state.contextType)
     }
 
-    if (this.state.showMenu) this.setState({ showMenu: false, contextPath: '' })
+    if (this.state.showMenu) this.setState({ showMenu: false, contextPath: '', contextType: '' })
   }
 
   handleContextMenu = (e: any) => {
@@ -48,6 +50,7 @@ export default class ContextMenu extends Component<ContextMenuProps, ContextMenu
     if (e.target.closest(`[class=hasContext]`)) {
       this.setState({
         contextPath: e.target.dataset.path,
+        contextType: e.target.dataset.type,
         xPos: `${e.pageX}px`,
         yPos: `${e.pageY}px`,
         showMenu: true,
@@ -57,6 +60,7 @@ export default class ContextMenu extends Component<ContextMenuProps, ContextMenu
       if (this.props.viewType === 'tree') {
         this.setState({
           contextPath: '/',
+          contextType: 'dir',
           xPos: `${e.pageX}px`,
           yPos: `${e.pageY}px`,
           showMenu: true,
@@ -65,6 +69,7 @@ export default class ContextMenu extends Component<ContextMenuProps, ContextMenu
       } else {
         this.setState({
           contextPath: this.props.currentPath,
+          contextType: 'dir',
           xPos: `${e.pageX}px`,
           yPos: `${e.pageY}px`,
           showMenu: true,

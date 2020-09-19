@@ -3,16 +3,16 @@ import React, { Component } from 'react'
 import Input from '../Input'
 
 interface FileProps {
-  fileName: string,
-  filePath: string,
-  input: boolean,
-  renameItem: (e: any, itemPath: string, value: string) => void,
-  setDraggingPath: (path: string) => void,
-  draggingPath: string,
-  setHoveringPath: (path: string) => void,
-  hoveringPath: string,
-  resetDragPaths: () => void,
-  moveItem: () => void,
+  fileName: string
+  filePath: string
+  input: boolean
+  draggingPath: string
+  hoveringPath: string
+  renameItem: (e: any, itemPath: string, value: string, itemType: string) => void
+  setDraggingPath: (path: string, type: string) => void
+  setHoveringPath: (path: string, type: string) => void
+  resetDragPaths: () => void
+  moveItem: () => void
 }
 
 interface FileState {
@@ -40,7 +40,7 @@ export default class File extends Component<FileProps, FileState> {
    * Set the drag image
    */
   dragStart(e: any) {
-    this.props.setDraggingPath(this.props.filePath)
+    this.props.setDraggingPath(this.props.filePath, 'file')
 
     e.dataTransfer.setData("text", e.target.id);
     e.dataTransfer.effectAllowed = "move";
@@ -56,7 +56,7 @@ export default class File extends Component<FileProps, FileState> {
   dragEnter(e: any) {
     if (e.target.dataset.path !== this.props.draggingPath) {
       this.setState({ hovering: true })
-      this.props.setHoveringPath(this.props.filePath)
+      this.props.setHoveringPath(this.props.filePath, 'file')
     }
   }
 
@@ -77,7 +77,7 @@ export default class File extends Component<FileProps, FileState> {
   dragLeave(e: any) {
     this.setState({ hovering: false })
     if (e.target.dataset.path !== this.props.draggingPath && this.props.hoveringPath === e.target.dataset.path) {
-      this.props.setHoveringPath("")
+      this.props.setHoveringPath('', '')
     }
   }
 
@@ -103,7 +103,7 @@ export default class File extends Component<FileProps, FileState> {
     // If input is true for this item, show input field rather than the file
     if (this.props.input) {
       return (
-        <Input itemName={fileName} itemPath={filePath} renameItem={renameItem} />
+        <Input itemName={fileName} itemPath={filePath} renameItem={renameItem} itemType='file' />
       )
     }
 
@@ -120,6 +120,7 @@ export default class File extends Component<FileProps, FileState> {
         onMouseLeave={this.mouseLeave}
         className="hasContext"
         data-path={filePath}
+        data-type="file"
         style={{
           opacity: draggingPath === filePath ? 0.5 : 1,
           display: "flex",
