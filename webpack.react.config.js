@@ -1,6 +1,5 @@
 const path = require('path')
-
-const HtmlWebpackPlugin = require('html-webpack-plugin');
+const HtmlWebpackPlugin = require('html-webpack-plugin')
 
 module.exports = {
   resolve: {
@@ -30,11 +29,11 @@ module.exports = {
     publicPath: '/',
   },
   output: {
-    path: path.resolve(__dirname, '../dist/renderer'),
+    path: path.resolve(__dirname, 'dist'),
     filename: 'js/[name].js',
-    publicPath: './',
   },
-  plugins: [
-    new HtmlWebpackPlugin(),
-  ],
-};
+  plugins: [new HtmlWebpackPlugin({
+    title: 'FileBowser',
+    template: './index.html'
+  })],
+}
